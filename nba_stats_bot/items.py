@@ -7,8 +7,13 @@
 
 import scrapy
 
+from scrapy.contrib.djangoitem import DjangoItem
+from nba.models import Player
 
-class NbaStatsBotItem(scrapy.Item):
-    # define the fields for your item here like:
-    # name = scrapy.Field()
-    pass
+class PlayerItem(DjangoItem):
+	django_model = Player
+
+class CrappyItem(scrapy.Item):
+
+    first_name = scrapy.Field()
+    last_name = scrapy.Field()
