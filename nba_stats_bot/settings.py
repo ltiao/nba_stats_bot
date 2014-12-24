@@ -8,6 +8,8 @@
 #     http://doc.scrapy.org/en/latest/topics/settings.html
 #
 
+import os
+
 BOT_NAME = 'nba_stats_bot'
 
 SPIDER_MODULES = ['nba_stats_bot.spiders']
@@ -15,3 +17,6 @@ NEWSPIDER_MODULE = 'nba_stats_bot.spiders'
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'nba_stats_bot (+http://www.yourdomain.com)'
+
+HTTPCACHE_ENABLED = True
+HTTPCACHE_DIR = os.path.join('/Users/tiao/Desktop', 'httpcache')
