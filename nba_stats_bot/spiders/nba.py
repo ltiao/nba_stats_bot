@@ -2,6 +2,7 @@
 import scrapy
 import json
 import pprint
+import dateutil.parser
 
 import common.utils
 
@@ -33,7 +34,7 @@ class PlayerSpider(scrapy.Spider):
             nba_id = details_dict.get(u'PERSON_ID'),
             first_name = details_dict.get(u'FIRST_NAME'),
             last_name = details_dict.get(u'LAST_NAME'),
-            birth_date = details_dict.get(u'BIRTHDATE'),
+            birth_date = dateutil.parser.parse(details_dict.get(u'BIRTHDATE')).date(),
             school = details_dict.get(u'SCHOOL'),
         )
         # self.log(pprint.pformat(details_dict))
@@ -44,10 +45,9 @@ class PlayerSpider(scrapy.Spider):
         details_dict = results[u'PlayerBio'][0]
         yield PlayerItem(
             nba_id = details_dict.get(u'Person_ID'),
-            birth_date = details_dict.get(u'Birthdate'),
+            birth_date = dateutil.parser.parse(details_dict.get(u'Birthdate')).date(),
             school = details_dict.get(u'School'),
         )
-        # self.log(pprint.pformat(details_dict))
 
     def parse_player_list(self, response):
         response_json = json.loads(response.body_as_unicode())
@@ -61,13 +61,11 @@ class PlayerSpider(scrapy.Spider):
                     'PlayerID': unicode(row.get(u'PERSON_ID'))
                 }
             )
-            yield scrapy.FormRequest(
-                url = 'http://stats.nba.com/feeds/players/profile/{player_id}_Profile.js' \
-                    .format(
-                        player_id=unicode(row.get(u'PERSON_ID'))
-                    ),
-                method = 'GET',
-                callback = self.parse_player_detail_2,
-            )
-
-
+            # yield scrapy.FormRequest(
+            #     url = 'http://stats.nba.com/feeds/players/profile/{player_id}_Profile.js' \
+            #         .format(
+            #             player_id=unicode(row.get(u'PERSON_ID'))
+            #         ),
+            #     method = 'GET',
+            #     callback = self.parse_player_detail_2,
+            # )
