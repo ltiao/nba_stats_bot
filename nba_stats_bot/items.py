@@ -8,10 +8,16 @@
 import scrapy
 
 from scrapy.contrib.djangoitem import DjangoItem
-from nba.models import Player
+from nba.models import Player, Team
 
 class PlayerItem(DjangoItem):
 	django_model = Player
+
+	file_urls = scrapy.Field()
+	files = scrapy.Field()
+
+class TeamItem(DjangoItem):
+	django_model = Team
 
 class CrappyItem(scrapy.Item):
 
