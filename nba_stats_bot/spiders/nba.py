@@ -67,8 +67,8 @@ class PlayerSpider(scrapy.Spider):
             nba_id = details_dict.get(u'PERSON_ID'),
             first_name = details_dict.get(u'FIRST_NAME'),
             last_name = details_dict.get(u'LAST_NAME'),
-            birth_date = dateutil.parser.parse(details_dict.get(u'BIRTHDATE')).date(),
-            school = details_dict.get(u'SCHOOL'),
+            # birth_date = dateutil.parser.parse(details_dict.get(u'BIRTHDATE')).date(),
+            # school = details_dict.get(u'SCHOOL'),
             # file_urls = [
             #     'http://stats.nba.com/media/players/230x185/{PERSON_ID}.png'.format(**details_dict),
             #     'http://stats.nba.com/media/players/170/{PERSON_ID}.png'.format(**details_dict)
@@ -79,7 +79,7 @@ class PlayerSpider(scrapy.Spider):
     def parse_player_detail_2(self, response):
         response_json = json.loads(response.body_as_unicode())
         results = common.utils.merge_dicts(*response_json[u'PlayerProfile'])
-        self.log(pprint.pformat(results))
+        # self.log(pprint.pformat(results))
         details_dict = results[u'PlayerBio'][0]
         yield PlayerItem(
             nba_id = details_dict.get(u'Person_ID'),
