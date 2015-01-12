@@ -26,8 +26,10 @@ HTTPCACHE_ENABLED = True
 HTTPCACHE_DIR = os.path.join('/Users/tiao/Desktop', 'httpcache')
 
 ITEM_PIPELINES = {
-	'nba_stats_bot.pipelines.PlayerPipeline': 1,
-	# 'scrapy.contrib.pipeline.files.FilesPipeline': 2
+	# 'nba_stats_bot.pipelines.UnhashedFilesPipeline': 100,
+	'scrapy.contrib.pipeline.files.FilesPipeline': 100,
+	'nba_stats_bot.pipelines.PlayerPipeline': 200,
+	'nba_stats_bot.pipelines.TeamPipeline': 300,
 }
 
 FILES_STORE = os.path.join('/Users/tiao/Desktop', 'nba_images')

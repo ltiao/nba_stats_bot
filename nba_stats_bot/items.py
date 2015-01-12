@@ -19,7 +19,15 @@ class PlayerItem(DjangoItem):
 class TeamItem(DjangoItem):
 	django_model = Team
 
+	file_urls = scrapy.Field()
+	files = scrapy.Field()
+
 class CrappyItem(scrapy.Item):
 
     first_name = scrapy.Field()
     last_name = scrapy.Field()
+
+class ArenaItem(scrapy.Item):
+
+	name = scrapy.Field()
+	capacity = scrapy.Field()
