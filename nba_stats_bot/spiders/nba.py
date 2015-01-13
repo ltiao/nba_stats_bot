@@ -5,6 +5,9 @@ import pprint
 import dateutil.parser
 
 import common.utils
+from common.utils import iter_of_dicts_to_nested_dict, iter_of_list_to_iter_of_dicts, \
+    iter_of_list_to_list_of_dicts, split_dict_to_iter_of_dicts, split_dict_to_list_of_dicts, \
+    merge_dicts
 
 from nba_stats_bot.items import PlayerItem, TeamItem, CrappyItem, ArenaItem
 
@@ -28,8 +31,8 @@ class TeamSpider(scrapy.Spider):
 
     def parse_team_list(self, response):
         response_json = json.loads(response.body_as_unicode())
-        results = common.utils.list_of_dicts_to_dict_of_dicts(response_json[u'resultSets'], u'name')
-        for row in common.utils.split_dict_to_iter_of_dicts(results[u'TeamYears'], u'rowSet', u'headers'):
+        results = iter_of_dicts_to_nested_dict(response_json[u'resultSets'], u'name')
+        for row in split_dict_to_iter_of_dicts(results[u'TeamYears'], u'rowSet', u'headers'):
             yield scrapy.FormRequest(
                 url = 'http://stats.nba.com/stats/teaminfocommon',
                 method = 'GET',
@@ -49,9 +52,8 @@ class TeamSpider(scrapy.Spider):
 
     def parse_team_detail_1(self, response):
         response_json = json.loads(response.body_as_unicode())
-        norm_response_json = common.utils.list_of_dicts_to_dict_of_dicts(response_json[u'resultSets'], u'name')
-        details_dict = next(common.utils.split_dict_to_iter_of_dicts(
-            norm_response_json[u'TeamInfoCommon'], u'rowSet', u'headers'))
+        norm_response_json = iter_of_dicts_to_nested_dict(response_json[u'resultSets'], u'name')
+        details_dict = next(split_dict_to_iter_of_dicts(norm_response_json[u'TeamInfoCommon'], u'rowSet', u'headers'))
         yield TeamItem(
             nba_id = details_dict.get(u'TEAM_ID'),
             nba_code = details_dict.get(u'TEAM_CODE'),
@@ -69,7 +71,7 @@ class TeamSpider(scrapy.Spider):
 
     def parse_team_detail_2(self, response):
         response_json = json.loads(response.body_as_unicode())
-        norm_response_json = common.utils.merge_dicts(*response_json[u'TeamDetails'])
+        norm_response_json = merge_dicts(*response_json[u'TeamDetails'])
         details_dict = norm_response_json[u'Details'][0]
         yield TeamItem(
             nba_id = details_dict.get(u'Team_Id'),
@@ -105,9 +107,9 @@ class PlayerSpider(scrapy.Spider):
 
     def parse_player_detail_1(self, response):
         response_json = json.loads(response.body_as_unicode())
-        results = common.utils.list_of_dicts_to_dict_of_dicts(response_json[u'resultSets'], u'name')
+        results = iter_of_dicts_to_nested_dict(response_json[u'resultSets'], u'name')
         # We only expect one row from this so we use `next` to get the first one
-        details_dict = next(common.utils.split_dict_to_iter_of_dicts(results[u'CommonPlayerInfo'], u'rowSet', u'headers'))
+        details_dict = next(split_dict_to_iter_of_dicts(results[u'CommonPlayerInfo'], u'rowSet', u'headers'))
         yield PlayerItem(
             nba_id = details_dict.get(u'PERSON_ID'),
             first_name = details_dict.get(u'FIRST_NAME'),
@@ -123,7 +125,7 @@ class PlayerSpider(scrapy.Spider):
 
     def parse_player_detail_2(self, response):
         response_json = json.loads(response.body_as_unicode())
-        results = common.utils.merge_dicts(*response_json[u'PlayerProfile'])
+        results = merge_dicts(*response_json[u'PlayerProfile'])
         # self.log(pprint.pformat(results))
         details_dict = results[u'PlayerBio'][0]
         yield PlayerItem(
@@ -134,8 +136,8 @@ class PlayerSpider(scrapy.Spider):
 
     def parse_player_list(self, response):
         response_json = json.loads(response.body_as_unicode())
-        results = common.utils.list_of_dicts_to_dict_of_dicts(response_json[u'resultSets'], u'name')
-        for row in common.utils.split_dict_to_iter_of_dicts(results[u'CommonAllPlayers'], u'rowSet', u'headers'):
+        results = iter_of_dicts_to_nested_dict(response_json[u'resultSets'], u'name')
+        for row in split_dict_to_iter_of_dicts(results[u'CommonAllPlayers'], u'rowSet', u'headers'):
             yield scrapy.FormRequest(
                 url = 'http://stats.nba.com/stats/commonplayerinfo',
                 method = 'GET',
