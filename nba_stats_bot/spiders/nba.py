@@ -60,12 +60,8 @@ class TeamSpider(scrapy.Spider):
             abbr = details_dict.get(u'TEAM_ABBREVIATION'),
             city = details_dict.get(u'TEAM_CITY'),
             nickname = details_dict.get(u'TEAM_NAME'),
-            division = dict(
-                name = details_dict.get(u'TEAM_DIVISION'),
-                conference = dict(
-                    name = details_dict.get(u'TEAM_CONFERENCE'),
-                ),
-            ),
+            division_name = details_dict.get(u'TEAM_DIVISION'),
+            conference_name = details_dict.get(u'TEAM_CONFERENCE'),
         )
         self.log(pprint.pformat(details_dict))
 

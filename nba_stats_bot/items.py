@@ -19,6 +19,9 @@ class PlayerItem(DjangoItem):
 class TeamItem(DjangoItem):
 	django_model = Team
 
+	conference_name = scrapy.Field()
+	division_name = scrapy.Field()
+	
 	file_urls = scrapy.Field()
 	files = scrapy.Field()
 

@@ -15,7 +15,7 @@ from scrapy import log
 from scrapy.contrib.pipeline.files import FilesPipeline
 
 from django.core.files import File
-from nba.models import Player, School, Team, Arena, Division, Conference
+from nba.models import Player, School, Team, Arena, Division, Conference, Group
 from nba_stats_bot.settings import FILES_STORE
 
 def selective(process_item_func):
@@ -55,32 +55,52 @@ class TeamPipeline:
             arena_obj, _ = Arena.objects.update_or_create(name=arena_dict.get('name'), defaults=arena_dict)
             item_dict['arena'] = arena_obj
         except KeyError:
-            pass
+            spider.log('arena data not present', level=log.DEBUG)
 
         try:
-            division_dict = item_dict['division']
-            
-            try:
-                conference_dict = division_dict['conference']
-                conference_obj, _ = Conference.objects.get_or_create(
-                    name = conference_dict.get('name'), 
-                    defaults = conference_dict
-                ) 
-                division_dict['conference'] = conference_obj
-            except KeyError:
-                division_dict['conference'] = None
+            conference_name = item_dict.pop('conference_name')
+            conference_obj, _ = Conference.objects.get_or_create(name=conference_name)
+        except KeyError:
+            spider.log('conference data not present', level=log.DEBUG)
+            conference_obj = None
 
+        try:
+            division_name = item_dict.pop('division_name')
             division_obj, _ = Division.objects.update_or_create(
-                name = division_dict.get('name'), 
-                defaults = division_dict
+                name = division_name, 
+                parent = conference_obj,
             )
-
             item_dict['division'] = division_obj
         except KeyError:
-            pass
+            spider.log('division data not present', level=log.DEBUG)
+
+
+        # try:
+        #     division_dict = item_dict['division']
+            
+        #     try:
+        #         conference_dict = division_dict['conference']
+        #         conference_obj, _ = Conference.objects.get_or_create(
+        #             name = conference_dict.get('name'), 
+        #             defaults = conference_dict
+        #         ) 
+        #         division_dict['conference'] = conference_obj
+        #     except KeyError:
+        #         division_dict['conference'] = None
+
+        #     division_obj, _ = Division.objects.update_or_create(
+        #         name = division_dict.get('name'), 
+        #         defaults = division_dict
+        #     )
+
+        #     item_dict['division'] = division_obj
+        # except KeyError:
+        #     pass
 
         file_urls = item_dict.pop('file_urls', None)
         files_dicts = item_dict.pop('files', [])
+
+        print item_dict
 
         team_obj, _ = Team.objects.update_or_create(nba_id=item_dict.get('nba_id'), defaults=item_dict)
         
