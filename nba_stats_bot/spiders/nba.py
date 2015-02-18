@@ -4,15 +4,70 @@ import json
 import pprint
 import dateutil.parser
 
-import common.utils
 from common.utils import iter_of_dicts_to_nested_dict, iter_of_list_to_iter_of_dicts, \
     iter_of_list_to_list_of_dicts, split_dict_to_iter_of_dicts, split_dict_to_list_of_dicts, \
-    merge_dicts
+    merge_dicts, datetime_count, current_season
 
-from nba_stats_bot.items import PlayerItem, TeamItem, CrappyItem, ArenaItem
+from nba_stats_bot.items import PlayerItem, TeamItem, CrappyItem, ArenaItem, GameItem
+
+from datetime import datetime, date, timedelta
+from itertools import islice
 
 # TODO: Extract magic constants and place
 #       in common location
+
+class GameSpider(scrapy.Spider):
+    name = "games"
+    allowed_domains = ["stats.nba.com"]
+
+    def start_requests(self):
+        kwargs = {
+            'url': 'http://stats.nba.com/stats/scoreboardV2',
+            'method': 'GET',
+            'formdata': {
+                'LeagueID': '00',
+                'DayOffset': '0',
+            },
+            'callback': self.parse_game_list,
+        }
+        for d in islice(datetime_count(datetime.today(), timedelta(days=-1)), 20):
+            print datetime.strftime(d, '%m/%d/%Y')
+            kwargs['formdata']['GameDate'] = datetime.strftime(d, '%m/%d/%Y')
+            yield scrapy.FormRequest(**kwargs)
+
+    def parse_game_list(self, response):
+        response_json = json.loads(response.body_as_unicode())
+        norm_response_json = iter_of_dicts_to_nested_dict(response_json[u'resultSets'], u'name')
+        for row in split_dict_to_iter_of_dicts(norm_response_json[u'GameHeader'], u'rowSet', u'headers'):
+            yield GameItem(
+                nba_id = row.get(u'GAME_ID'),
+                nba_code = row.get(u'GAMECODE'),
+                date = dateutil.parser.parse(row.get(u'GAME_DATE_EST')).date(),
+                home = row.get(u'HOME_TEAM_ID'),
+                away = row.get(u'VISITOR_TEAM_ID'),
+                season = row.get(u'SEASON'),
+            )
+            yield scrapy.FormRequest(
+                url = 'http://stats.nba.com/stats/boxscoresummaryv2',
+                method = 'GET',
+                formdata = {
+                    'GameID': row.get(u'GAME_ID')
+                },
+                meta = {
+                    'GameID': row.get(u'GAME_ID')
+                },
+                callback = self.parse_game_detail,
+            )
+
+    def parse_game_detail(self, response):
+        response_json = json.loads(response.body_as_unicode())
+        norm_response_json = iter_of_dicts_to_nested_dict(response_json[u'resultSets'], u'name')
+        details_dict = next(split_dict_to_iter_of_dicts(norm_response_json[u'GameInfo'], u'rowSet', u'headers'))
+        yield GameItem(
+            nba_id = response.request.meta.get(u'GameID'),
+            attendance = details_dict.get(u'ATTENDANCE'),
+            duration = details_dict.get(u'GAME_TIME'),
+        )
 
 class TeamSpider(scrapy.Spider):
     name = "teams"
@@ -20,7 +75,7 @@ class TeamSpider(scrapy.Spider):
 
     def start_requests(self):
         kwargs = {
-            'url': 'http://stats.nba.com/stats/commonTeamYears?LeagueID=00',
+            'url': 'http://stats.nba.com/stats/commonTeamYears',
             'method': 'GET',
             'formdata': {
                 'LeagueID': '00'
@@ -31,8 +86,8 @@ class TeamSpider(scrapy.Spider):
 
     def parse_team_list(self, response):
         response_json = json.loads(response.body_as_unicode())
-        results = iter_of_dicts_to_nested_dict(response_json[u'resultSets'], u'name')
-        for row in split_dict_to_iter_of_dicts(results[u'TeamYears'], u'rowSet', u'headers'):
+        norm_response_json = iter_of_dicts_to_nested_dict(response_json[u'resultSets'], u'name')
+        for row in split_dict_to_iter_of_dicts(norm_response_json[u'TeamYears'], u'rowSet', u'headers'):
             yield scrapy.FormRequest(
                 url = 'http://stats.nba.com/stats/teaminfocommon',
                 method = 'GET',
@@ -41,7 +96,7 @@ class TeamSpider(scrapy.Spider):
                     'TeamID': unicode(row.get(u'TEAM_ID')),
                     'LeagueID': '00',
                     'SeasonType': 'Regular Season',
-                    'Season': common.utils.current_season()
+                    'Season': current_season()
                 }
             )
             yield scrapy.Request(

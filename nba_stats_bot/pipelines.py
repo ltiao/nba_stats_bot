@@ -15,7 +15,7 @@ from scrapy import log
 from scrapy.contrib.pipeline.files import FilesPipeline
 
 from django.core.files import File
-from nba.models import Player, School, Team, Arena, Division, Conference, Group
+from nba.models import Player, School, Team, Arena, Division, Conference, Group, Game, Season
 from nba_stats_bot.settings import FILES_STORE
 
 def selective(process_item_func):
@@ -27,10 +27,10 @@ def selective(process_item_func):
             .format(self.__class__.__name__, spider.name, self.spiders)
 
         if spider.name in self.spiders:
-            spider.log(msg.format('executing', ''), level=log.DEBUG)
+            spider.log(msg.format('Executing', ''), level=log.DEBUG)
             item = process_item_func(self, item, spider)
         else:
-            spider.log(msg.format('skipping', 'not '), level=log.DEBUG)
+            spider.log(msg.format('Skipping', 'not '), level=log.DEBUG)
         
         return item
 
@@ -41,6 +41,35 @@ class UnhashedFilesPipeline(FilesPipeline):
     def file_path(self, request, response=None, info=None):
         super(UnhashedFilesPipeline, self).file_path(request, response, info)      
         return 'full/{}'.format(request.url.split('/')[-1])
+
+class GamePipeline:
+
+    spiders = ['games']
+
+    @selective
+    def process_item(self, item, spider):
+        item_dict = dict(item)
+        
+        try:
+            item_dict['home'] = Team.objects.get(nba_id=item_dict['home'])
+            item_dict['away'] = Team.objects.get(nba_id=item_dict['away'])
+        except KeyError:
+            spider.log('paricipating team data not present', level=log.DEBUG)
+
+        try:
+            item_dict['duration'] = sum(a*b for a, b in zip((60, 1), map(int, item_dict['duration'].split(':'))))
+        except:
+            spider.log('duration data not present', level=log.DEBUG)
+
+        try:
+            season_obj, _ = Season.objects.update_or_create(start_year=int(item_dict['season']))
+            item_dict['season'] = season_obj
+        except KeyError:
+            spider.log('season data not present', level=log.DEBUG)
+
+        game_obj, _ = Game.objects.update_or_create(nba_id=item_dict.get('nba_id'), defaults=item_dict)
+
+        return item
 
 class TeamPipeline:
 
