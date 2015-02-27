@@ -2,19 +2,65 @@
 import scrapy
 import json
 import pprint
+import functools
 import dateutil.parser
 
 from common.utils import iter_of_dicts_to_nested_dict, iter_of_list_to_iter_of_dicts, \
     iter_of_list_to_list_of_dicts, split_dict_to_iter_of_dicts, split_dict_to_list_of_dicts, \
     merge_dicts, datetime_count, current_season
 
-from nba_stats_bot.items import PlayerItem, TeamItem, CrappyItem, ArenaItem, GameItem, OfficialItem
+from nba_stats_bot.items import PlayerItem, TeamItem, CrappyItem, ArenaItem, GameItem, OfficialItem, BoxscoreTraditionalItem
 
 from datetime import datetime, date, timedelta
 from itertools import islice
 
 # TODO: Extract magic constants and place
 #       in common location
+
+def response_json(parse_method):
+
+    @functools.wraps(parse_method)
+    def wrapper(self, response):
+
+        self.log('Parsing raw text response to json...')
+
+        response_json = json.loads(response.body_as_unicode())
+
+        return parse_method(self, response_json)
+
+    return wrapper
+
+def norm_response_json(k1, k2):
+    def norm_response_json_decorator(parse_method):
+        @functools.wraps(parse_method)
+        @response_json
+        def wrapper(self, response_json):
+            self.log('Parsing raw text response to json...')
+            return parse_method(self, iter_of_dicts_to_nested_dict(response_json[k1], k2))
+        return wrapper
+    return norm_response_json_decorator
+
+def get_iterable(key):
+    def get_iterable_dec(parse_method):
+        @functools.wraps(parse_method)
+        def wrapper(self, d):
+
+            return parse_method(self, d[key])
+
+        return wrapper   
+    return get_iterable_dec
+
+def nested_dict(key):
+    def nested_dict_dec(parse_method):
+        @functools.wraps(parse_method)
+        def wrapper(self, iterable):
+
+            self.log('Parsing list of ')
+            d = iter_of_dicts_to_nested_dict(iterable, key)
+            return parse_method(self, d)
+
+        return wrapper
+    return nested_dict_dec
 
 class GameSpider(scrapy.Spider):
     name = "games"
@@ -58,6 +104,33 @@ class GameSpider(scrapy.Spider):
                 },
                 callback = self.parse_game_detail,
             )
+            yield scrapy.FormRequest(
+                url = 'http://stats.nba.com/stats/boxscoretraditionalv2',
+                method = 'GET',
+                formdata = {
+                    'GameID': row.get(u'GAME_ID'),
+                    'RangeType': unicode(2),
+                    'StartPeriod': unicode(1),
+                    'EndPeriod': unicode(10),
+                    'StartRange': unicode(0),
+                    'EndRange': unicode(48 * 60 * 10) # 48 minutes in deciseconds
+                },
+                callback = self.parse_game_boxscore,
+            )
+
+    def parse_game_boxscore(self, response):
+        response_json = json.loads(response.body_as_unicode())
+        norm_response_json = iter_of_dicts_to_nested_dict(response_json[u'resultSets'], u'name')
+        for boxscore_dict in split_dict_to_iter_of_dicts(norm_response_json[u'PlayerStats'], u'rowSet', u'headers'):
+            yield BoxscoreTraditionalItem(
+                game = boxscore_dict.get(u'GAME_ID'),
+                player = boxscore_dict.get(u'PLAYER_ID'),
+                team = boxscore_dict.get(u'TEAM_ID'),
+                pts = boxscore_dict.get(u'PTS'),
+                ast = boxscore_dict.get(u'AST'),
+                reb = boxscore_dict.get(u'REB'),
+            )
+            self.log(pprint.pformat(boxscore_dict))
 
     def parse_game_detail(self, response):
         response_json = json.loads(response.body_as_unicode())
@@ -90,10 +163,11 @@ class TeamSpider(scrapy.Spider):
         }
         yield scrapy.FormRequest(**kwargs)
 
+    @norm_response_json(u'resultSets', u'name')
     def parse_team_list(self, response):
-        response_json = json.loads(response.body_as_unicode())
-        norm_response_json = iter_of_dicts_to_nested_dict(response_json[u'resultSets'], u'name')
-        for row in split_dict_to_iter_of_dicts(norm_response_json[u'TeamYears'], u'rowSet', u'headers'):
+        # response_json = json.loads(response.body_as_unicode())
+        # norm_response_json = iter_of_dicts_to_nested_dict(response[u'resultSets'], u'name')
+        for row in split_dict_to_iter_of_dicts(response[u'TeamYears'], u'rowSet', u'headers'):
             yield scrapy.FormRequest(
                 url = 'http://stats.nba.com/stats/teaminfocommon',
                 method = 'GET',

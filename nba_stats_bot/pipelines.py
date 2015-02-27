@@ -15,9 +15,8 @@ from scrapy import log
 from scrapy.contrib.pipeline.files import FilesPipeline
 
 from django.core.files import File
-from nba.models import Player, School, Team, Arena, Division, Conference, Group, Game, Season, Official
+from nba.models import Player, School, Team, Arena, Division, Conference, Group, Game, Season, Official, BoxscoreTraditional
 from nba_stats_bot.settings import FILES_STORE
-from nba_stats_bot.items import OfficialItem
 from pprint import pprint, pformat
 
 def selective(process_item_func):

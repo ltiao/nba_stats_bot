@@ -8,7 +8,10 @@
 import scrapy
 
 from scrapy.contrib.djangoitem import DjangoItem
-from nba.models import Player, Team, Game, Official
+from nba.models import Player, Team, Game, Official, BoxscoreTraditional
+
+class BoxscoreTraditionalItem(DjangoItem):
+	django_model = BoxscoreTraditional
 
 class PlayerItem(DjangoItem):
 	django_model = Player
