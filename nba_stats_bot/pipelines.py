@@ -19,23 +19,47 @@ from nba.models import Player, School, Team, Arena, Division, Conference, Group,
 from nba_stats_bot.settings import FILES_STORE
 from pprint import pprint, pformat
 
-def selective(process_item_func):
+def filter_spiders(*spiders):
+    
+    def filter_spiders_decorator(process_item_method):
+    
+        @functools.wraps(process_item_method)
+        def wrapper(self, item, spider):
+            msg = '{{}} {} pipeline step: "{}" {{}}in {}' \
+                .format(self.__class__.__name__, spider.name, spiders)
 
-    @functools.wraps(process_item_func)
-    def wrapper(self, item, spider):
-
-        msg = '{{}} {} pipeline step: "{}" {{}}in {}' \
-            .format(self.__class__.__name__, spider.name, self.spiders)
-
-        if spider.name in self.spiders:
-            spider.log(msg.format('Executing', ''), level=log.DEBUG)
-            item = process_item_func(self, item, spider)
-        else:
-            spider.log(msg.format('Skipping', 'not '), level=log.DEBUG)
+            if spider.name in spiders:
+                spider.log(msg.format('Executing', ''), level=log.DEBUG)
+                item = process_item_method(self, item, spider)
+            else:
+                spider.log(msg.format('Skipping', 'not '), level=log.DEBUG)
+            
+            return item
         
-        return item
+        return wrapper
 
-    return wrapper
+    return filter_spiders_decorator
+
+def filter_items(*items):
+    
+    def filter_items_decorator(process_item_method):
+    
+        @functools.wraps(process_item_method)
+        def wrapper(self, item, spider):
+            msg = '{{}} {} pipeline step: "{}" {{}}in {}' \
+                .format(self.__class__.__name__, item.__class__.__name__, items)
+
+            if item.__class__.__name__ in items:
+                spider.log(msg.format('Executing', ''), level=log.DEBUG)
+                item = process_item_method(self, item, spider)
+            else:
+                spider.log(msg.format('Skipping', 'not '), level=log.DEBUG)
+            
+            return item
+        
+        return wrapper
+
+    return filter_items_decorator
 
 class UnhashedFilesPipeline(FilesPipeline):
 
@@ -43,12 +67,42 @@ class UnhashedFilesPipeline(FilesPipeline):
         super(UnhashedFilesPipeline, self).file_path(request, response, info)      
         return 'full/{}'.format(request.url.split('/')[-1])
 
-class GamePipeline:
+class MultiItemPipeline:
 
-    spiders = ['games']
-
-    @selective
     def process_item(self, item, spider):
+        spider.log('Item of type {0}'.format(item.__class__.__name__), level=log.DEBUG)
+        item_callback = self.item_callbacks.get(item.__class__.__name__)
+        if callable(item_callback):
+            return item_callback(item, spider)
+        else:
+            spider.log('Callback for item of type {0} is not callable'.format(item.__class__.__name__), level=log.ERROR)
+            return item
+
+class GamePipeline(MultiItemPipeline):
+
+    def __init__(self):
+        self.item_callbacks = {
+            'GameItem': self.process_game_item,
+            'BoxscoreTraditionalItem': self.process_boxscore_item,
+        }
+
+    @filter_spiders('games')
+    def process_boxscore_item(self, item, spider):
+        
+        spider.log('processing boxscore!!!', level=log.DEBUG)  
+
+        item_dict = dict(item)
+
+        item_dict['team'] = Team.objects.get(nba_id=item_dict['team'])
+        item_dict['player'] = Player.objects.get(nba_id=item_dict['player'])
+        item_dict['game'] = Game.objects.get(nba_id=item_dict['game'])
+
+        BoxscoreTraditional.objects.update_or_create(**item_dict)
+
+        return item
+
+    @filter_spiders('games')
+    def process_game_item(self, item, spider):
 
         item_dict = dict(item)
         
@@ -83,9 +137,7 @@ class GamePipeline:
 
 class TeamPipeline:
 
-    spiders = ['teams']
-
-    @selective
+    @filter_spiders('teams')
     def process_item(self, item, spider):
         item_dict = dict(item)
 
@@ -128,8 +180,6 @@ class TeamPipeline:
 
 class PlayerPipeline:
 
-    spiders = ['players']
-
     def __init__(self):
         pass
 
@@ -139,7 +189,7 @@ class PlayerPipeline:
     def close_spider(self, spider):
         pass
 
-    @selective
+    @filter_spiders('players')
     def process_item(self, item, spider):
         item_dict = dict(item)
 
