@@ -8,7 +8,7 @@
 import scrapy
 
 from scrapy.contrib.djangoitem import DjangoItem
-from nba.models import Player, Team, Game
+from nba.models import Player, Team, Game, Official
 
 class PlayerItem(DjangoItem):
 	django_model = Player
@@ -27,6 +27,10 @@ class TeamItem(DjangoItem):
 
 class GameItem(DjangoItem):
 	django_model = Game
+	officials = scrapy.Field()
+
+class OfficialItem(DjangoItem):
+	django_model = Official
 
 class CrappyItem(scrapy.Item):
 

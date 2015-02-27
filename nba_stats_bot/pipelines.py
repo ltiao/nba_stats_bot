@@ -15,8 +15,10 @@ from scrapy import log
 from scrapy.contrib.pipeline.files import FilesPipeline
 
 from django.core.files import File
-from nba.models import Player, School, Team, Arena, Division, Conference, Group, Game, Season
+from nba.models import Player, School, Team, Arena, Division, Conference, Group, Game, Season, Official
 from nba_stats_bot.settings import FILES_STORE
+from nba_stats_bot.items import OfficialItem
+from pprint import pprint, pformat
 
 def selective(process_item_func):
 
@@ -48,8 +50,17 @@ class GamePipeline:
 
     @selective
     def process_item(self, item, spider):
+
         item_dict = dict(item)
         
+        try:
+            item_dict['officials'] = [
+                Official.objects.get_or_create(nba_id=official.get('nba_id'), defaults=official)[0] 
+                for official in item_dict['officials']
+            ]
+        except KeyError:
+            spider.log('officials data not present', level=log.DEBUG)  
+
         try:
             item_dict['home'] = Team.objects.get(nba_id=item_dict['home'])
             item_dict['away'] = Team.objects.get(nba_id=item_dict['away'])
@@ -102,29 +113,6 @@ class TeamPipeline:
             item_dict['division'] = division_obj
         except KeyError:
             spider.log('division data not present', level=log.DEBUG)
-
-
-        # try:
-        #     division_dict = item_dict['division']
-            
-        #     try:
-        #         conference_dict = division_dict['conference']
-        #         conference_obj, _ = Conference.objects.get_or_create(
-        #             name = conference_dict.get('name'), 
-        #             defaults = conference_dict
-        #         ) 
-        #         division_dict['conference'] = conference_obj
-        #     except KeyError:
-        #         division_dict['conference'] = None
-
-        #     division_obj, _ = Division.objects.update_or_create(
-        #         name = division_dict.get('name'), 
-        #         defaults = division_dict
-        #     )
-
-        #     item_dict['division'] = division_obj
-        # except KeyError:
-        #     pass
 
         file_urls = item_dict.pop('file_urls', None)
         files_dicts = item_dict.pop('files', [])

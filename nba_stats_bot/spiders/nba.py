@@ -8,7 +8,7 @@ from common.utils import iter_of_dicts_to_nested_dict, iter_of_list_to_iter_of_d
     iter_of_list_to_list_of_dicts, split_dict_to_iter_of_dicts, split_dict_to_list_of_dicts, \
     merge_dicts, datetime_count, current_season
 
-from nba_stats_bot.items import PlayerItem, TeamItem, CrappyItem, ArenaItem, GameItem
+from nba_stats_bot.items import PlayerItem, TeamItem, CrappyItem, ArenaItem, GameItem, OfficialItem
 
 from datetime import datetime, date, timedelta
 from itertools import islice
@@ -67,6 +67,12 @@ class GameSpider(scrapy.Spider):
             nba_id = response.request.meta.get(u'GameID'),
             attendance = details_dict.get(u'ATTENDANCE'),
             duration = details_dict.get(u'GAME_TIME'),
+            officials = [OfficialItem(
+                nba_id = row.get(u'OFFICIAL_ID'),
+                first_name = row.get(u'FIRST_NAME'),
+                last_name = row.get(u'LAST_NAME'),
+                jersey_num = int(row.get(u'JERSEY_NUM').rstrip()),
+            ) for row in split_dict_to_iter_of_dicts(norm_response_json[u'Officials'], u'rowSet', u'headers')]
         )
 
 class TeamSpider(scrapy.Spider):
